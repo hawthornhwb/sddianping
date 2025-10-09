@@ -5,13 +5,18 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import javax.annotation.Resource;
+
 
 @Configuration
 public class MvcConfig implements WebMvcConfigurer {
 
+    @Resource
+    private LoginCheckInterceptor loginCheckInterceptor;
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new LoginCheckInterceptor()).excludePathPatterns(
+        registry.addInterceptor(loginCheckInterceptor).excludePathPatterns(
                 "/shop/**",
                 "/voucher/**",
                 "/shop-type/**",

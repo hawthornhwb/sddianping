@@ -51,7 +51,7 @@ public class UserController {
     public Result login(@RequestBody LoginFormDTO loginForm, HttpSession session){
         // 实现登录功能
 //        return Result.fail("功能未完成");
-        return userService.login(loginForm, session);
+        return userService.login(loginForm);
     }
 
     /**
