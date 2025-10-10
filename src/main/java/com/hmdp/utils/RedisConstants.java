@@ -8,6 +8,10 @@ public class RedisConstants {
 
     // 商铺缓存用到的常量
     public static final String CACHE_SHOP_KEY = "cache:shop:";
+    public static final Long CACHE_SHOP_TIME = 30L;
+    public static final Long CACHE_NULL_TIME = 2L;
+    public static final String CACHE_LOCK_KEY = "cache:lock:";
+    public static final Long CACHE_LOCK_TIME = 2L;
 
     // 商铺类型缓存用到的常量
     public static final String CACHE_TYPELIST_KEY =  "cache:typeList";
