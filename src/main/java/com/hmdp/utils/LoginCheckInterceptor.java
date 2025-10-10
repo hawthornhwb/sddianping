@@ -50,7 +50,6 @@ public class LoginCheckInterceptor implements HandlerInterceptor {
         // 2. 从Redis中获取用户信息
         Map<Object, Object> userMap = stringRedisTemplate.opsForHash().entries(LOGIN_USER_KEY + token);
         // 3. user信息不存在，则重定向到登录界面，并拦截
-        log.info("userMap:{}", userMap);
         if (userMap.isEmpty()) {
             response.setStatus(401); // 如果用户不存在，重定向到登录界面
             return false;
