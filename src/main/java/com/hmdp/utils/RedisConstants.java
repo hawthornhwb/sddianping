@@ -9,4 +9,7 @@ public class RedisConstants {
     // 商铺缓存用到的常量
     public static final String CACHE_SHOP_KEY = "cache:shop:";
 
+    // 商铺类型缓存用到的常量
+    public static final String CACHE_TYPELIST_KEY =  "cache:typeList";
+
 }
