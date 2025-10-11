@@ -22,8 +22,6 @@ spring:
     default-property-inclusion: non_null # JSON处理时忽略非空字段
 mybatis-plus:
   type-aliases-package: com.hmdp.entity # 别名扫描包
-  configuration:
-    map-underscore-to-camel-case: true # 开启驼峰命名转换
 logging:
   level:
     com.hmdp: debug
