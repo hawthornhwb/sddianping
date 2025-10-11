@@ -26,6 +26,7 @@ com\hmdp\mapper\FollowMapper.class
 com\hmdp\service\IFollowService.class
 com\hmdp\controller\UploadController.class
 com\hmdp\mapper\VoucherMapper.class
+com\hmdp\utils\RedisIdWorker.class
 com\hmdp\utils\SystemConstants.class
 com\hmdp\service\impl\SeckillVoucherServiceImpl.class
 com\hmdp\mapper\ShopMapper.class

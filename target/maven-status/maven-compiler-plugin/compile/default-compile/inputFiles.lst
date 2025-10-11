@@ -24,6 +24,7 @@ D:\JavaProject-sddianping\sddianping\src\main\java\com\hmdp\service\ISeckillVouc
 D:\JavaProject-sddianping\sddianping\src\main\java\com\hmdp\entity\User.java
 D:\JavaProject-sddianping\sddianping\src\main\java\com\hmdp\service\IBlogService.java
 D:\JavaProject-sddianping\sddianping\src\main\java\com\hmdp\service\IFollowService.java
+D:\JavaProject-sddianping\sddianping\src\main\java\com\hmdp\utils\RedisIdWorker.java
 D:\JavaProject-sddianping\sddianping\src\main\java\com\hmdp\entity\Blog.java
 D:\JavaProject-sddianping\sddianping\src\main\java\com\hmdp\utils\RedisConstants.java
 D:\JavaProject-sddianping\sddianping\src\main\java\com\hmdp\utils\RegexUtils.java
