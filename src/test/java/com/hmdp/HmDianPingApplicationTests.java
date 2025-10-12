@@ -11,9 +11,10 @@ public class HmDianPingApplicationTests {
 
     @Resource
     private ShopServiceImpl shopService;
+    private final static Long TOTAL_SHOP_NUMBER = 15L;
 
     @Test
     public void savaShopToRedis() throws InterruptedException {
-        shopService.saveHotShopToRedis(1L, 10L);
+        for (Long i = 0L; i < TOTAL_SHOP_NUMBER; i++) shopService.saveHotShopToRedis(i, 10L); // 进行缓存预热
     }
 }

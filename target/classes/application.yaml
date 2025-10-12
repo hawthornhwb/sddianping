@@ -2,12 +2,12 @@ server:
   port: 8081
 spring:
   application:
-    name: hmdp
+    name: sddp
   datasource:
     driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/hmdp?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: root
-    password: 1234
+    url: jdbc:mysql://150.158.122.195:3306/sddp?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: sddianpinghwb
+    password: Hwb20010217.
   redis:
     host: 150.158.122.195
     port: 6379
@@ -22,6 +22,8 @@ spring:
     default-property-inclusion: non_null # JSON处理时忽略非空字段
 mybatis-plus:
   type-aliases-package: com.hmdp.entity # 别名扫描包
+  configuration:
+    map-underscore-to-camel-case: true # 开启驼峰命名转换
 logging:
   level:
     com.hmdp: debug
