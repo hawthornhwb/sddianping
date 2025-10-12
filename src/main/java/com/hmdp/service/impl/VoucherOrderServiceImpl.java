@@ -52,7 +52,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             return Result.fail("库存不足，无法下单");
         }
         // 3. 库存充足则扣减库存
-        boolean success = seckillVoucherService.update().setSql("stock = stock - 1").eq("voucher_id", id).update();
+        boolean success = seckillVoucherService.update().setSql("stock = stock - 1").eq("voucher_id", id).gt("stock", 0).update(); // 解决库存超卖问题
         if (!success) { // 多线程并发运行时，可能会出现不一致的情况.
             return Result.fail("库存不足，无法下单");
         }
