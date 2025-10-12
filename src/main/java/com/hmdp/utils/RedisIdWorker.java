@@ -2,18 +2,24 @@ package com.hmdp.utils;
 
 
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
+@Component
 public class RedisIdWorker {
 
     private static final long START_TIMESTAMP = 1735689600L; // 2025年1月1日的时间戳
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    public RedisIdWorker(StringRedisTemplate stringRedisTemplate) {
+        this.stringRedisTemplate = stringRedisTemplate;
+    } // 需要将stringRedisTemplate注入进来
 
     public long nextId(String keyPrefix, int offset) {
         // 高31位时间戳构造
