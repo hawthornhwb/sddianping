@@ -1,8 +1,11 @@
 package com.hmdp.utils;
 
 import cn.hutool.core.lang.UUID;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 public class SimpleRedisLock implements ILock {
@@ -14,6 +17,15 @@ public class SimpleRedisLock implements ILock {
     // Redis对象
     private StringRedisTemplate stringRedisTemplate;
     private String name;
+
+    // 加载lua脚本
+    private static final DefaultRedisScript<Long> UNLOCK_SCRIPT;
+    static {
+        UNLOCK_SCRIPT = new DefaultRedisScript<>();
+        UNLOCK_SCRIPT.setLocation(new ClassPathResource("unlock.lua"));
+        UNLOCK_SCRIPT.setResultType(Long.class);
+    }
+
 
     public SimpleRedisLock(String name, StringRedisTemplate stringRedisTemplate) {
         this.name = name;
@@ -32,10 +44,14 @@ public class SimpleRedisLock implements ILock {
 
     @Override
     public void unlock() {
-        String id = id_prefix + Thread.currentThread().getId();
-        String cacheId = stringRedisTemplate.opsForValue().get(LOCK_NAME + name);
-        if (cacheId.equals(id)) { // 使用当线程id标识相同时，才执行删除锁的操作
-            stringRedisTemplate.delete(LOCK_NAME + name);
-        }
+//        String id = id_prefix + Thread.currentThread().getId();
+//        String cacheId = stringRedisTemplate.opsForValue().get(LOCK_NAME + name);
+//        if (cacheId.equals(id)) { // 使用当线程id标识相同时，才执行删除锁的操作
+//            stringRedisTemplate.delete(LOCK_NAME + name);
+
+        stringRedisTemplate.execute(
+                UNLOCK_SCRIPT,
+                Collections.singletonList(LOCK_NAME + name),
+                id_prefix + Thread.currentThread().getId());
     }
 }
