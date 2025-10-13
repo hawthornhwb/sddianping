@@ -9,9 +9,11 @@ import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisData;
 import com.hmdp.utils.RedisIdWorker;
+import com.hmdp.utils.SimpleRedisLock;
 import com.hmdp.utils.UserHolder;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +37,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private RedisIdWorker redisIdWorker;
 
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
     @Override
     public Result seckillVoucher(Long id) {
         // 1. 判断秒杀时间
@@ -49,11 +54,29 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
 
         // 2. 将创建订单的整个业务进行封装
-        Long userId = UserHolder.getUser().getId(); // 给userId上锁，保证一人一单
-        synchronized (userId.toString().intern()) { // 使用字符串常量池中的String对象,可以保证值相同的字符串使用同一个对象
+//        Long userId = UserHolder.getUser().getId(); // 给userId上锁，保证一人一单
+//        synchronized (userId.toString().intern()) { // 使用字符串常量池中的String对象,可以保证值相同的字符串使用同一个对象
+//            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+//            return proxy.createVoucherOrder(id, voucher);
+//        }
+        // 2. 上述代码仅在单服务器下实现一人一单，下面实现在集群模式下的一人一单
+        // 2.1 获取锁
+        Long userId = UserHolder.getUser().getId();
+        SimpleRedisLock redisLock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
+        boolean success = redisLock.tryLock(1200);
+        if (!success) {
+            return Result.fail("一人只能下一单，不可重复下单");
+        }
+
+        try {
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(id, voucher);
+        } catch (IllegalStateException e) {
+            throw new RuntimeException(e);
+        } finally {
+            redisLock.unlock();
         }
+
     }
 
     @Transactional
