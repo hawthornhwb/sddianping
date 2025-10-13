@@ -27,6 +27,7 @@ com\hmdp\service\IFollowService.class
 com\hmdp\controller\UploadController.class
 com\hmdp\mapper\VoucherMapper.class
 com\hmdp\utils\RedisIdWorker.class
+com\hmdp\utils\SimpleRedisLock.class
 com\hmdp\utils\SystemConstants.class
 com\hmdp\service\impl\SeckillVoucherServiceImpl.class
 com\hmdp\mapper\ShopMapper.class
@@ -43,6 +44,7 @@ com\hmdp\dto\UserDTO.class
 com\hmdp\utils\RegexUtils.class
 com\hmdp\mapper\UserMapper.class
 com\hmdp\service\IShopTypeService.class
+com\hmdp\utils\ILock.class
 com\hmdp\entity\UserInfo.class
 com\hmdp\entity\VoucherOrder.class
 com\hmdp\controller\VoucherController.class
