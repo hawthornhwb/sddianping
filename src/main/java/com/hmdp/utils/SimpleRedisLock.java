@@ -1,5 +1,6 @@
 package com.hmdp.utils;
 
+import cn.hutool.core.lang.UUID;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.concurrent.TimeUnit;
@@ -8,6 +9,7 @@ public class SimpleRedisLock implements ILock {
 
     // 锁名
     private static final String LOCK_NAME = "lock:";
+    private static final String id_prefix = UUID.fastUUID().toString(true) + "-"; // 避免不同JVM产生的线程id不同
 
     // Redis对象
     private StringRedisTemplate stringRedisTemplate;
@@ -22,14 +24,18 @@ public class SimpleRedisLock implements ILock {
     public boolean tryLock(long timeoutSec) {
         // 使用Redis分布式锁 key:锁名（统一前缀）+业务名+用户id value:线程id ex: timeoutSec
         // 1. 获取线程id，表明当前是哪个线程获取到了这把锁
-        long id = Thread.currentThread().getId();
+        String id = id_prefix + Thread.currentThread().getId();
         // 2. 使用redis获取这把锁
-        Boolean success = stringRedisTemplate.opsForValue().setIfAbsent(LOCK_NAME + name, id + "", timeoutSec, TimeUnit.SECONDS);
+        Boolean success = stringRedisTemplate.opsForValue().setIfAbsent(LOCK_NAME + name, id, timeoutSec, TimeUnit.SECONDS);
         return Boolean.TRUE.equals(success); // 当success拆箱为null时，返回false
     }
 
     @Override
     public void unlock() {
-        stringRedisTemplate.delete(LOCK_NAME + name);
+        String id = id_prefix + Thread.currentThread().getId();
+        String cacheId = stringRedisTemplate.opsForValue().get(LOCK_NAME + name);
+        if (cacheId.equals(id)) { // 使用当线程id标识相同时，才执行删除锁的操作
+            stringRedisTemplate.delete(LOCK_NAME + name);
+        }
     }
 }
