@@ -3,7 +3,9 @@ package com.hmdp;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
+@EnableAspectJAutoProxy(exposeProxy = true) // 将代理对象在程序中暴露,程序员可以在程序中获取到代理对象
 @MapperScan("com.hmdp.mapper")
 @SpringBootApplication
 public class HmDianPingApplication {

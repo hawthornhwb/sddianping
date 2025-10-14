@@ -3,6 +3,7 @@ package com.hmdp.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.Result;
@@ -96,10 +97,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
         String token = UUID.randomUUID().toString(true);
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class); // 使用这个办法拷贝需要保证原来的实体类和将来要拷贝的实体类有相同的属性。
-        stringRedisTemplate.opsForHash().put(LOGIN_USER_KEY + token, "id", String.valueOf(user.getId())); // 这里使用valueOf的好处是可以处理空值。直接使用toString，当对象为null时会抛空指针异常。
-        stringRedisTemplate.opsForHash().put(LOGIN_USER_KEY + token, "nickName", userDTO.getNickName());
-        stringRedisTemplate.opsForHash().put(LOGIN_USER_KEY + token, "icon", userDTO.getIcon()); // 这种写法并不好，因为会与服务器有多次交互。
-        stringRedisTemplate.expire(LOGIN_USER_KEY + token, 30, TimeUnit.MINUTES); // 设置当前key的有效期为30分钟
+//        stringRedisTemplate.opsForHash().put(LOGIN_USER_KEY + token, "id", String.valueOf(user.getId())); // 这里使用valueOf的好处是可以处理空值。直接使用toString，当对象为null时会抛空指针异常。
+//        stringRedisTemplate.opsForHash().put(LOGIN_USER_KEY + token, "nickName", userDTO.getNickName());
+//        stringRedisTemplate.opsForHash().put(LOGIN_USER_KEY + token, "icon", userDTO.getIcon()); // 这种写法并不好，因为会与服务器有多次交互。
+        // 修改为使用string的方法将数据存入redis中
+        // 5.1 将user对象转成 jsonString类型
+        String userDTOStr = JSONUtil.toJsonStr(userDTO);
+//        stringRedisTemplate.expire(LOGIN_USER_KEY + token, 30, TimeUnit.MINUTES); // 设置当前key的有效期为30分钟
+        stringRedisTemplate.opsForValue().set(LOGIN_USER_KEY + token, userDTOStr, 30, TimeUnit.MINUTES);
 //        return Result.ok(); // 基于session不需要返回登录凭证
         return Result.ok(token); // 基于Redis登录需要返回登录凭证
     }
