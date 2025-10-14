@@ -11,6 +11,8 @@ import com.hmdp.utils.RedisData;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.SimpleRedisLock;
 import com.hmdp.utils.UserHolder;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -40,6 +42,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    @Resource
+    private RedissonClient redissonClient;
+
     @Override
     public Result seckillVoucher(Long id) {
         // 1. 判断秒杀时间
@@ -62,8 +67,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // 2. 上述代码仅在单服务器下实现一人一单，下面实现在集群模式下的一人一单
         // 2.1 获取锁
         Long userId = UserHolder.getUser().getId();
-        SimpleRedisLock redisLock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
-        boolean success = redisLock.tryLock(1200);
+//        SimpleRedisLock redisLock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
+//        boolean success = redisLock.tryLock(1200);
+        // 使用redisson实现互斥锁机制
+        RLock lock = redissonClient.getLock("lock:order:" + userId);
+        boolean success = lock.tryLock();// waitTime: 获取锁时的最大等待时间, leaseTime: 持有锁后过多长时间释放锁；无参: waiteTime:-1 leaseTime: 30s
         if (!success) {
             return Result.fail("一人只能下一单，不可重复下单");
         }
@@ -74,8 +82,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         } catch (IllegalStateException e) {
             throw new RuntimeException(e);
         } finally {
-            redisLock.unlock();
+//            redisLock.unlock();
+            lock.unlock();
         }
+
 
     }
 
