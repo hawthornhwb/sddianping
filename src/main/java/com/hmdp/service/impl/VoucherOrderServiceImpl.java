@@ -11,16 +11,23 @@ import com.hmdp.utils.RedisData;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.SimpleRedisLock;
 import com.hmdp.utils.UserHolder;
+import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
+import java.util.List;
+
+import static com.hmdp.utils.RedisConstants.*;
 
 /**
  * <p>
@@ -30,6 +37,7 @@ import java.time.LocalDateTime;
  * @author 虎哥
  * @since 2021-12-22
  */
+@Slf4j
 @Service
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
 
@@ -45,6 +53,56 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private RedissonClient redissonClient;
 
+    private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
+    static {
+        SECKILL_SCRIPT = new DefaultRedisScript<>();
+        SECKILL_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
+        SECKILL_SCRIPT.setResultType(Long.class);
+    }
+
+//    @Override
+//    public Result seckillVoucher(Long id) {
+//        // 1. 判断秒杀时间
+//        // 1.1 判断秒杀是否开始
+//        SeckillVoucher voucher = seckillVoucherService.getById(id);
+//        if (voucher.getBeginTime().isAfter(LocalDateTime.now())) {
+//            return Result.fail("秒杀活动还未开始!");
+//        }
+//        // 1.2 判断秒杀是否结束
+//        if (voucher.getEndTime().isBefore(LocalDateTime.now())) {
+//            return Result.fail("秒杀活动已经结束!");
+//        }
+//
+//        // 2. 将创建订单的整个业务进行封装
+// //        Long userId = UserHolder.getUser().getId(); // 给userId上锁，保证一人一单
+// //        synchronized (userId.toString().intern()) { // 使用字符串常量池中的String对象,可以保证值相同的字符串使用同一个对象
+// //            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+// //            return proxy.createVoucherOrder(id, voucher);
+// //        }
+//        // 2. 上述代码仅在单服务器下实现一人一单，下面实现在集群模式下的一人一单
+//        // 2.1 获取锁
+//        Long userId = UserHolder.getUser().getId();
+// //        SimpleRedisLock redisLock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
+// //        boolean success = redisLock.tryLock(1200);
+//        // 使用redisson实现互斥锁机制
+//        RLock lock = redissonClient.getLock("lock:order:" + userId);
+//        boolean success = lock.tryLock();// waitTime: 获取锁时的最大等待时间, leaseTime: 持有锁后过多长时间释放锁；无参: waiteTime:-1 leaseTime: 30s
+//        if (!success) {
+//            return Result.fail("一人只能下一单，不可重复下单");
+//        }
+//
+//        try {
+//            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+//            return proxy.createVoucherOrder(id, voucher);
+//        } catch (IllegalStateException e) {
+//            throw new RuntimeException(e);
+//        } finally {
+// //            redisLock.unlock();
+//            lock.unlock();
+//        }
+//    }
+
+    // 秒杀优化
     @Override
     public Result seckillVoucher(Long id) {
         // 1. 判断秒杀时间
@@ -58,34 +116,24 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             return Result.fail("秒杀活动已经结束!");
         }
 
-        // 2. 将创建订单的整个业务进行封装
-//        Long userId = UserHolder.getUser().getId(); // 给userId上锁，保证一人一单
-//        synchronized (userId.toString().intern()) { // 使用字符串常量池中的String对象,可以保证值相同的字符串使用同一个对象
-//            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
-//            return proxy.createVoucherOrder(id, voucher);
-//        }
-        // 2. 上述代码仅在单服务器下实现一人一单，下面实现在集群模式下的一人一单
-        // 2.1 获取锁
+        // 2. 判断用户是否具备下单资格
+        // todo
         Long userId = UserHolder.getUser().getId();
-//        SimpleRedisLock redisLock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
-//        boolean success = redisLock.tryLock(1200);
-        // 使用redisson实现互斥锁机制
-        RLock lock = redissonClient.getLock("lock:order:" + userId);
-        boolean success = lock.tryLock();// waitTime: 获取锁时的最大等待时间, leaseTime: 持有锁后过多长时间释放锁；无参: waiteTime:-1 leaseTime: 30s
-        if (!success) {
-            return Result.fail("一人只能下一单，不可重复下单");
+        Long result = stringRedisTemplate.execute(
+                SECKILL_SCRIPT,
+                List.of(SECKILL_STOCK_KEY + id, SECKILL_VOUCHER_KEY + id),
+                userId.toString()
+        );
+        // 将下单信息写入数据库
+        // todo
+        log.info("result:{}", result);
+        int success = result.intValue(); // 返回的值是Long型，无法与int型比较
+        if (success != 0) {
+            return Result.fail(success == 1 ? "库存不足" : "一人只能下一单");
         }
 
-        try {
-            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
-            return proxy.createVoucherOrder(id, voucher);
-        } catch (IllegalStateException e) {
-            throw new RuntimeException(e);
-        } finally {
-//            redisLock.unlock();
-            lock.unlock();
-        }
-
+        long orderId = redisIdWorker.nextId(SECKILL_ORDER_KEY, 16);
+        return Result.ok(orderId);
 
     }
 
