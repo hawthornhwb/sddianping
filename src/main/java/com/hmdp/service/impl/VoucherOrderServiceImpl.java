@@ -7,25 +7,25 @@ import com.hmdp.mapper.VoucherOrderMapper;
 import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.hmdp.utils.RedisData;
 import com.hmdp.utils.RedisIdWorker;
-import com.hmdp.utils.SimpleRedisLock;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.hmdp.utils.RedisConstants.*;
 
@@ -59,6 +59,39 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         SECKILL_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
         SECKILL_SCRIPT.setResultType(Long.class);
     }
+
+    private IVoucherOrderService proxy;
+    private BlockingQueue<VoucherOrder> orderTasks = new ArrayBlockingQueue<>(1024*1024);
+    private static final ExecutorService SECKILL_ORDER_EXECUTOR = Executors.newSingleThreadExecutor();
+
+    // 创建类初始化的任务
+    @PostConstruct
+    private void init() {
+        SECKILL_ORDER_EXECUTOR.submit(new voucherOrderHandler());
+    }
+
+    // 创建线程任务
+    private class voucherOrderHandler implements Runnable {
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    // 1. // 从阻塞队列里取任务
+                    VoucherOrder voucherOrder = orderTasks.take();
+
+                    // 2. 在数据库中完成真正的下单任务
+                    proxy.createVoucherOrder(voucherOrder); // 使用代理对象可以保证事务一致性
+                } catch (InterruptedException e) {
+                    log.info("阻塞队列获取任务异常..");
+                }
+
+            }
+        }
+
+
+    }
+
 
 //    @Override
 //    public Result seckillVoucher(Long id) {
@@ -117,22 +150,32 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
 
         // 2. 判断用户是否具备下单资格
-        // todo
         Long userId = UserHolder.getUser().getId();
         Long result = stringRedisTemplate.execute(
                 SECKILL_SCRIPT,
                 List.of(SECKILL_STOCK_KEY + id, SECKILL_VOUCHER_KEY + id),
                 userId.toString()
         );
-        // 将下单信息写入数据库
-        // todo
-        log.info("result:{}", result);
+
+//        log.info("result:{}", result);
         int success = result.intValue(); // 返回的值是Long型，无法与int型比较
         if (success != 0) {
             return Result.fail(success == 1 ? "库存不足" : "一人只能下一单");
         }
 
-        long orderId = redisIdWorker.nextId(SECKILL_ORDER_KEY, 16);
+        // 将下单信息写入数据库
+        // 1. 创建订单
+        VoucherOrder voucherOrder = new VoucherOrder();
+        long orderId = redisIdWorker.nextId("order", 16);
+        voucherOrder.setId(orderId); // offset指的是序列号有几位，这里默认为16位
+        // 创建用户id
+        voucherOrder.setUserId(userId);
+        // 创建订单id
+        voucherOrder.setVoucherId(id);
+
+        // 将订单放入到阻塞队列中
+        proxy = (IVoucherOrderService) AopContext.currentProxy(); // 1. 为了保证下单业务能够成功提交 2. proxy存储在threadLocal中，因为需要将该对象赋值给类的成员变量，这样子线程才可见
+        orderTasks.add(voucherOrder);
         return Result.ok(orderId);
 
     }
@@ -170,5 +213,13 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         save(voucherOrder);
         // 返回订单Id
         return Result.ok(orderId);
+    }
+
+    @Transactional
+    @Override
+    public void createVoucherOrder(VoucherOrder voucherOrder) {
+        // 这里不使用分布式锁了，因为lua脚本已经判断完了库存超卖和一人一旦问题了，除非lua脚本失败，但可能性很低。
+        seckillVoucherService.update().setSql("stock = stock - 1").eq("voucher_id", voucherOrder.getVoucherId()).gt("stock", 0).update(); // 解决库存超卖问题
+        save(voucherOrder);
     }
 }
