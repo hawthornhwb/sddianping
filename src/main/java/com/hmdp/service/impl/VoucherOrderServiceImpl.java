@@ -108,7 +108,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                     // 1. 从消息队列里取下单信息
                     List<MapRecord<String, Object, Object>> voucherLists = stringRedisTemplate.opsForStream().read(
                             Consumer.from("g1", "c1"),
-                            StreamReadOptions.empty().count(1).block(Duration.ofMinutes(2)),
+                            StreamReadOptions.empty().count(1).block(Duration.ofSeconds(2)), // 这里的时间超过客户端响应时间就会主动抛异常.
+                            // XREADGROUP 命令发出后，程序开始等待。但是在 1 分钟之内，既没有等到新消息，也没有收到 Redis 的任何其他响应，客户端的耐心耗尽了，于是主动抛出了超时异常。
                             StreamOffset.create(streamName, ReadOffset.lastConsumed())
                     );
                     // 2. 消息队列里没消息，则继续监听
@@ -118,9 +119,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                     // 2.1 消息队列有消息，则获取消息
                     MapRecord<String, Object, Object> voucherList = voucherLists.get(0);
                     Map<Object, Object> voucherEntry = voucherList.getValue();
-                    log.info("voucherEntry:{}", voucherEntry);
+//                    log.info("voucherEntry:{}", voucherEntry);
                     VoucherOrder voucherOrder = BeanUtil.fillBeanWithMap(voucherEntry, new VoucherOrder(), true);
-                    log.info("voucherOrder:{}", voucherOrder);
+//                    log.info("voucherOrder:{}", voucherOrder);
                     // 2. 在数据库中完成的下单任务
                     proxy.createVoucherOrder(voucherOrder); // 使用代理对象可以保证事务一致性
 
@@ -138,7 +139,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                     // 1. 从pending-list里取下单信息
                     List<MapRecord<String, Object, Object>> pendingVoucherLists = stringRedisTemplate.opsForStream().read(
                             Consumer.from("g1", "c1"),
-                            StreamReadOptions.empty().count(1).block(Duration.ofMinutes(2)),
+                            StreamReadOptions.empty().count(1).block(Duration.ofSeconds(2)),
                             StreamOffset.create(streamName, ReadOffset.from("0")) // 从pending-list中获取信息
                     );
 
