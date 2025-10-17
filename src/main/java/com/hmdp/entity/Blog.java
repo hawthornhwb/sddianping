@@ -52,6 +52,12 @@ public class Blog implements Serializable {
     private String name;
 
     /**
+     * 用户是否点赞
+     */
+    @TableField(exist = false)
+    private Boolean isLike;
+
+    /**
      * 标题
      */
     private String title;
