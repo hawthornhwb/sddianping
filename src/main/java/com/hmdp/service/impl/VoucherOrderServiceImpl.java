@@ -128,12 +128,16 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                     // 3. 下单成功，向消息代理返回atk，代表消息成功处理
                     stringRedisTemplate.opsForStream().acknowledge(streamName, "g1", voucherList.getId());
                 } catch (Exception e) {
-                    handleExceptionOrder();
+                    try {
+                        handleExceptionOrder();
+                    } catch (Exception ex) {
+                        throw new RuntimeException(ex);
+                    }
                 }
             }
         }
 
-        private void handleExceptionOrder() {
+        private void handleExceptionOrder() throws Exception {
             while (true) {
                 try {
                     // 1. 从pending-list里取下单信息
@@ -157,7 +161,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                     // 3. 下单成功，向消息代理返回atk，代表消息成功处理
                     stringRedisTemplate.opsForStream().acknowledge(streamName, "g1", pendingVoucherList.getId());
                 } catch (Exception e) {
-                    log.error("pending-list处理异常", e);
+                    throw new Exception(e);
                 }
             }
         }
