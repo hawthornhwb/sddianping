@@ -29,7 +29,7 @@ public class SeckillVoucher implements Serializable {
     /**
      * 关联的优惠券的id
      */
-    @TableId(value = "voucher_id", type = IdType.AUTO)
+    @TableId(value = "voucher_id", type = IdType.INPUT) // 这个值是需要手动填入的，之前的代码使用自增，因而程序一直报错。
     private Long voucherId;
 
     /**
