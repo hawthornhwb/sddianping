@@ -50,9 +50,8 @@ public class LoginCheckInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         // 1. 从请求头中获取token
         String token = request.getHeader("authorization");
+
         // 2. 从Redis中获取用户信息
-//        Map<Object, Object> userMap = stringRedisTemplate.opsForHash().entries(LOGIN_USER_KEY + token);
-        // 由于Login方法中已经将对象使用string存储了，因而这里也要修改
         String userStr = stringRedisTemplate.opsForValue().get(LOGIN_USER_KEY + token);
         // 3. user信息不存在，则重定向到登录界面，并拦截
         if (StrUtil.isBlank(userStr)) {
@@ -61,9 +60,9 @@ public class LoginCheckInterceptor implements HandlerInterceptor {
         }
 
         // 4. 保存用户信息到ThreadLocal中，工具类中的UserHolder已经写好了
-//        UserDTO userDTO = BeanUtil.fillBeanWithMap(userMap, new UserDTO(), false);
         UserDTO userDTO = JSONUtil.toBean(userStr, UserDTO.class);
         UserHolder.saveUser(userDTO);
+
         // 5. 刷新用户信息有效期
         stringRedisTemplate.expire(LOGIN_USER_KEY + token, 30, TimeUnit.MINUTES); // 设置当前key的有效期为30分钟
 
